@@ -1,0 +1,141 @@
+/* Tillify DEBT MANAGEMENT THEME - DARK THEME */
+@import "tailwindcss";
+
+:root {
+  /* Primary Color Palette - Debt & Credit Focused */
+  --primary-color: #dc2626;      /* Strong red for debt urgency */
+  --primary-hover: #b91c1c;      /* Darker red */
+  --secondary-color: #f59e0b;    /* Amber for payments/reminders */
+  --success-color: #10b981;      /* Emerald Green - Payment received */
+  --warning-color: #f97316;      /* Orange for overdue */
+  --danger-color: #dc2626;       /* Red for high risk */
+  --info-color: #3b82f6;         /* Blue for general info */
+
+  /* Background Colors - Dark Theme */
+  --background-color: #0f172a;   /* Dark Slate 900 */
+  --sidebar-bg: #1e1b2e;        /* Deeper purple-black for seriousness */
+  --sidebar-border: #334155;
+  --sidebar-text: #f1f5f9;
+  --header-bg: #1e1b2e;
+
+  /* Text Colors */
+  --text-primary: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --text-tertiary: #94a3b8;
+
+  /* Card Backgrounds */
+  --card-bg: #1e293b;
+  --card-secondary-bg: #0f172a;
+  --card-hover-bg: #334155;
+
+  /* Border Colors */
+  --border-color: #334155;
+  --border-light: #1e293b;
+  --border-dark: #475569;
+
+  /* Debt Management Specific Status Colors */
+  --status-paid: #10b981;        /* Green - Paid in full */
+  --status-partial: #f59e0b;     /* Amber - Partial payment */
+  --status-overdue: #dc2626;     /* Red - Overdue debt */
+  --status-pending: #3b82f6;     /* Blue - Pending */
+  --status-collection: #8b5cf6;  /* Purple - In collection */
+  --status-waived: #6b7280;      /* Gray - Waived off */
+
+  /* Debt Amount Colors */
+  --debt-high: #dc2626;          /* High debt amount */
+  --debt-medium: #f59e0b;        /* Medium debt amount */
+  --debt-low: #10b981;           /* Low debt amount */
+  --debt-interest: #f97316;      /* Interest amount */
+
+  /* Accent Colors - Debt Management Themed */
+  --accent-red: #dc2626;
+  --accent-red-hover: #b91c1c;
+  --accent-red-light: rgba(220, 38, 38, 0.1);
+
+  --accent-amber: #f59e0b;
+  --accent-amber-hover: #d97706;
+  --accent-amber-light: rgba(245, 158, 11, 0.1);
+
+  --accent-green: #10b981;
+  --accent-green-hover: #059669;
+  --accent-green-light: rgba(16, 185, 129, 0.1);
+
+  --accent-purple: #8b5cf6;
+  --accent-purple-hover: #7c3aed;
+  --accent-purple-light: rgba(139, 92, 246, 0.1);
+
+  --accent-blue: #3b82f6;
+  --accent-blue-hover: #2563eb;
+  --accent-blue-light: rgba(59, 130, 246, 0.1);
+
+  /* Status Backgrounds */
+  --status-paid-bg: rgba(16, 185, 129, 0.15);
+  --status-partial-bg: rgba(245, 158, 11, 0.15);
+  --status-overdue-bg: rgba(220, 38, 38, 0.15);
+  --status-pending-bg: rgba(59, 130, 246, 0.15);
+  --status-collection-bg: rgba(139, 92, 246, 0.15);
+
+  /* Button Colors for Debt Management */
+  --btn-primary-bg: var(--accent-red);
+  --btn-primary-hover: var(--accent-red-hover);
+  --btn-primary-text: #ffffff;
+
+  --btn-success-bg: var(--accent-green);
+  --btn-success-hover: var(--accent-green-hover);
+  --btn-success-text: #ffffff;
+
+  --btn-warning-bg: var(--accent-amber);
+  --btn-warning-hover: var(--accent-amber-hover);
+  --btn-warning-text: #ffffff;
+
+  --btn-payment-bg: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  --btn-payment-hover: linear-gradient(135deg, #059669 0%, #047857 100%);
+  --btn-payment-text: #ffffff;
+
+  /* Receipt & Invoice Colors */
+  --receipt-bg: #1e293b;
+  --receipt-border: #334155;
+  --receipt-header: #0f172a;
+  --receipt-total: #334155;
+
+  /* Table Colors */
+  --table-header-bg: #0f172a;
+  --table-row-even: #1e293b;
+  --table-row-odd: #0f172a;
+  --table-row-hover: #334155;
+  --table-border: #334155;
+
+  /* Form Colors */
+  --input-bg: #0f172a;
+  --input-border: #334155;
+  --input-focus: var(--accent-red);
+  --select-option-bg: #1e293b;
+  --select-option-hover: #334155;
+
+  /* Topbar Colors */
+  --topbar-bg: #1e1b2e;
+  --topbar-border: #334155;
+  --topbar-hover: #dc2626;
+  --topbar-search-bg: #0f172a;
+  --topbar-search-border: #334155;
+
+  /* Gradient Colors */
+  --gradient-primary: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  --gradient-success: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  --gradient-warning: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  --gradient-danger: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+/* Pulse animation for debt alerts */
+@keyframes pulse-debt {
+  0%, 100% {
+    box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.6);
+  }
+}
+
+.animate-pulse-debt {
+  animation: pulse-debt 1.5s ease-in-out infinite;
+}

@@ -1,0 +1,195 @@
+/* Debt Management - Windows-like UI Enhancements */
+
+/* Windows-like buttons - Debt theme */
+.windows-button {
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.windows-button-primary {
+  background-color: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+}
+
+.windows-button-primary:hover {
+  background-color: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+
+.windows-button-primary:active {
+  background-color: #991b1b;
+}
+
+.windows-button-secondary {
+  background-color: var(--card-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.windows-button-secondary:hover {
+  background-color: var(--card-hover-bg);
+  border-color: var(--border-dark);
+}
+
+.windows-button-secondary:active {
+  background-color: var(--border-color);
+}
+
+.windows-button-danger {
+  background-color: var(--danger-color);
+  color: white;
+  border-color: var(--danger-color);
+}
+
+.windows-button-danger:hover {
+  background-color: #b91c1c;
+}
+
+.windows-button:focus {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.5);
+}
+
+/* Windows-like input */
+.windows-input {
+  display: block;
+  width: 100%;
+  border-radius: 0.375rem;
+  border: 1px solid var(--input-border);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  background-color: var(--input-bg);
+  color: var(--text-primary);
+}
+
+.windows-input:focus {
+  border-color: var(--input-focus);
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.5);
+}
+
+/* Windows-like checkbox */
+.windows-checkbox {
+  height: 1rem;
+  width: 1rem;
+  border-radius: 0.25rem;
+  border: 1px solid var(--input-border);
+  background-color: var(--input-bg);
+  accent-color: var(--primary-color);
+}
+
+.windows-checkbox:checked {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+/* Windows-like card - Debt variant */
+.windows-card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+.windows-card:hover {
+  border-color: var(--primary-color);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Windows-like table */
+.windows-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.windows-table th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+  background-color: var(--table-header-bg);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.windows-table td {
+  padding: 0.75rem 1rem;
+  white-space: nowrap;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+/* Debt-specific status badges */
+.debt-badge-paid {
+  background-color: var(--status-paid-bg);
+  color: var(--status-paid);
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.debt-badge-overdue {
+  background-color: var(--status-overdue-bg);
+  color: var(--status-overdue);
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  animation: pulse-debt 1.5s infinite;
+}
+
+.debt-badge-partial {
+  background-color: var(--status-partial-bg);
+  color: var(--status-partial);
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* Animation for Windows-like fade in */
+@keyframes windowsFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.windows-fade-in {
+  animation: windowsFadeIn 0.3s ease-out;
+}
+
+/* Debt amount highlighting */
+.debt-highlight-high {
+  color: var(--debt-high);
+  font-weight: bold;
+}
+
+.debt-highlight-medium {
+  color: var(--debt-medium);
+  font-weight: bold;
+}
+
+.debt-highlight-low {
+  color: var(--debt-low);
+  font-weight: bold;
+}
