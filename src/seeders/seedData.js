@@ -1,199 +1,109 @@
-// seedData.js
-// Tillify System Seeder - Food/Restaurant/Fastfood Edition
-// Run with: npm run seed [options]
+// src/seeders/seedDebtManagerX.js
+// DebtManagerX Database Seeder
+// Run with: npm run seed:debt -- [options]
+// Or: node src/seeders/seedDebtManagerX.js
 
 const { DataSource } = require("typeorm");
-const { AppDataSource } = require("../main/db/data-source");
+const path = require("path");
 
-// Existing entities
-const Customer = require("../entities/Customer");
-const Product = require("../entities/Product");
-const Sale = require("../entities/Sale");
-const SaleItem = require("../entities/SaleItem");
-const InventoryMovement = require("../entities/InventoryMovement");
-const LoyaltyTransaction = require("../entities/LoyaltyTransaction");
+// Entity imports
 const { AuditLog } = require("../entities/AuditLog");
-const { SystemSetting } = require("../entities/systemSettings");
-
-// New entities
-const Category = require("../entities/Category");
-const Supplier = require("../entities/Supplier");
-const Purchase = require("../entities/Purchase");
-const PurchaseItem = require("../entities/PurchaseItem");
-const ReturnRefund = require("../entities/ReturnRefund");
-const ReturnRefundItem = require("../entities/ReturnRefundItem");
+const Borrower = require("../entities/Borrower");
+const Debt = require("../entities/Debt");
+const LoanAgreement = require("../entities/LoanAgreement");
+const Notification = require("../entities/Notification");
 const NotificationLog = require("../entities/NotificationLog");
+const PaymentTransaction = require("../entities/PaymentTransaction");
+const PenaltyTransaction = require("../entities/PenaltyTransaction");
 
 // ========== CONFIGURATION ==========
 const DEFAULT_CONFIG = {
-  productCount: 60,      // more products for a diverse menu
-  customerCount: 30,
-  saleCount: 100,
-  inventoryMovementCount: 150,
-  loyaltyTransactionCount: 80,
-  auditLogCount: 60,
-  categoryCount: 6,
-  supplierCount: 8,
-  purchaseCount: 30,
-  returnRefundCount: 20,
-  notificationLogCount: 50,
+  borrowerCount: 25,
+  debtCount: 60,
+  paymentCount: 120,
+  penaltyCount: 30,
+  loanAgreementCount: 45,
+  notificationCount: 80,
+  notificationLogCount: 100,
+  auditLogCount: 150,
   clearOnly: false,
-  skipProducts: false,
-  skipCustomers: false,
-  skipSales: false,
-  skipInventoryMovements: false,
-  skipLoyaltyTransactions: false,
-  skipAuditLogs: false,
-  skipSystemSettings: false,
-  skipCategories: false,
-  skipSuppliers: false,
-  skipPurchases: false,
-  skipReturnRefunds: false,
+  skipBorrowers: false,
+  skipDebts: false,
+  skipPayments: false,
+  skipPenalties: false,
+  skipLoanAgreements: false,
+  skipNotifications: false,
   skipNotificationLogs: false,
+  skipAuditLogs: false,
 };
 
-// ========== RANDOM HELPERS (with food theme) ==========
+// ========== RANDOM HELPERS ==========
 const random = {
   int: (min, max) => Math.floor(Math.random() * (max - min + 1)) + min,
   float: (min, max, decimals = 2) =>
     +(Math.random() * (max - min) + min).toFixed(decimals),
   date: (start, end) =>
-    new Date(
-      start.getTime() + Math.random() * (end.getTime() - start.getTime()),
-    ),
-  pastDate: () => random.date(new Date(2024, 0, 1), new Date()),
+    new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime())),
+  pastDate: () => random.date(new Date(2023, 0, 1), new Date()),
   futureDate: () => random.date(new Date(), new Date(2026, 11, 31)),
   element: (arr) => arr[Math.floor(Math.random() * arr.length)],
   boolean: (probability = 0.5) => Math.random() < probability,
-  sku: (usedSet) => {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    let sku;
-    do {
-      sku = Array.from(
-        { length: 8 },
-        () => chars[random.int(0, chars.length - 1)],
-      ).join("");
-    } while (usedSet.has(sku));
-    usedSet.add(sku);
-    return sku;
-  },
-  barcode: (usedSet) => {
-    let barcode;
-    do {
-      barcode = Array.from({ length: 13 }, () => random.int(0, 9)).join("");
-    } while (usedSet.has(barcode));
-    usedSet.add(barcode);
-    return barcode;
-  },
-  phone: () => `+63${random.int(900000000, 999999999)}`,
-  email: (prefix) => `${prefix}${random.int(1, 999)}@example.com`,
+  
   name: () => {
     const first = [
-      "John", "Jane", "Michael", "Sarah", "David", "Maria", "James", "Patricia", "Robert", "Jennifer",
-      "Marco", "Angela", "Ramon", "Luz", "Eduardo", "Teresa"
+      "John", "Jane", "Michael", "Sarah", "David", "Maria", "James", "Patricia",
+      "Robert", "Jennifer", "William", "Elizabeth", "Joseph", "Linda", "Thomas",
+      "Susan", "Charles", "Jessica", "Christopher", "Karen", "Daniel", "Nancy",
+      "Matthew", "Lisa", "Anthony", "Betty", "Mark", "Sandra", "Donald", "Ashley"
     ];
     const last = [
-      "Smith", "Doe", "Johnson", "Brown", "Davis", "Garcia", "Rodriguez", "Wilson", "Martinez", "Taylor",
-      "Santos", "Reyes", "Cruz", "Aquino", "Gonzales"
+      "Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis",
+      "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson",
+      "Thomas", "Taylor", "Moore", "Jackson", "Martin", "Lee", "Perez", "Thompson",
+      "White", "Harris", "Sanchez", "Clark", "Ramirez", "Lewis", "Robinson"
     ];
     return `${random.element(first)} ${random.element(last)}`;
   },
   
-  // ---------- Food-specific product names ----------
-  productName: () => {
-    const items = {
-      burgers: [
-        "Cheeseburger", "Double Cheeseburger", "Bacon Burger", "Chicken Burger", 
-        "Veggie Burger", "Mushroom Swiss Burger", "BBQ Burger", "Teri Burger",
-        "Angus Beef Burger", "Spicy Chicken Burger"
-      ],
-      fries: [
-        "French Fries", "Curly Fries", "Sweet Potato Fries", "Garlic Fries", 
-        "Cheese Fries", "Chili Cheese Fries", "Wedges"
-      ],
-      drinks: [
-        "Coca-Cola", "Pepsi", "Sprite", "Royal", "Iced Tea", "Lemonade", 
-        "Mango Shake", "Buko Juice", "Calamansi Juice", "Bottled Water"
-      ],
-      desserts: [
-        "Sundae", "Chocolate Ice Cream", "Strawberry Shake", "Apple Pie", 
-        "Brownie", "Churros", "Leche Flan", "Halo-Halo"
-      ],
-      rice_meals: [
-        "Chicken Adobo Rice Meal", "Pork Sinigang Rice Meal", "Beef Tapa Rice Meal",
-        "Longganisa Rice Meal", "Tocino Rice Meal", "Fried Chicken Rice Meal",
-        "Bangus Rice Meal", "Pork Sisig Rice Meal", "Lechon Kawali Rice Meal"
-      ],
-      breakfast: [
-        "Bacon & Eggs", "Sausage & Eggs", "Corned Beef & Rice", "Pancakes",
-        "Garlic Rice with Tapa", "Daing na Bangus Breakfast"
-      ],
-      snacks: [
-        "Burger Steak", "Spaghetti", "Lasagna", "Macaroni Soup", "Carbonara",
-        "Siomai Rice", "Lumpiang Shanghai", "Pizza Slice"
-      ]
-    };
-    const categories = Object.keys(items);
-    const cat = random.element(categories);
-    return random.element(items[cat]);
+  email: (name) => {
+    const cleanName = name.toLowerCase().replace(/\s/g, ".");
+    return `${cleanName}${random.int(1, 99)}@example.com`;
   },
   
-  description: () => {
-    const descs = [
-      "Freshly prepared with quality ingredients.",
-      "Served hot and delicious.",
-      "Customer favorite!",
-      "Best paired with rice or fries.",
-      "Made from scratch daily.",
-      "Authentic recipe, guaranteed satisfaction.",
-      "Perfect for your meal break.",
-      "Recommended by our chef."
-    ];
-    return random.boolean(0.6) ? random.element(descs) : null;
+  phone: () => `+63${random.int(900000000, 999999999)}`,
+  
+  address: () => {
+    const streets = ["Main St", "Oak Ave", "Maple Dr", "Cedar Ln", "Pine Rd", "Elm Blvd"];
+    return `${random.int(100, 9999)} ${random.element(streets)}, ${random.element(["Manila", "Cebu", "Davao", "Makati", "Quezon City"])}`;
   },
   
-  voucherCode: () => {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    return `VOUCH-${Array.from({ length: 6 }, () => chars[random.int(0, chars.length - 1)]).join("")}`;
-  },
+  status: () => random.element(["active", "paid", "overdue", "defaulted"]),
   
-  // Food price range (PHP)
-  foodPrice: () => random.float(45, 350),
+  paymentMethod: () => random.element(["cash", "bank_transfer", "check", "gcash", "paymaya"]),
   
-  // Category names (food themed)
-  foodCategoryName: (index) => {
-    const names = [
-      "Burgers", "Fries & Sides", "Beverages", "Desserts", 
-      "Rice Meals", "Breakfast", "Snacks & Pasta"
-    ];
-    return names[index % names.length];
-  },
+  notificationType: () => random.element(["error", "info", "reminder", "overdue", "payment_confirmation"]),
   
-  // Supplier names for food distributors
-  supplierName: () => {
-    const names = [
-      "Puregold Supply Corp.", "SM Food Service", "Monde Nissin Distributor",
-      "Coca-Cola Beverages PH", "San Miguel Foods", "Universal Robina",
-      "Jollibee Commissary", "McDonald's Logistics", "KFC Supplier PH",
-      "Local Farm Produce", "Meat Depot Inc.", "Fresh Seafoods Traders"
-    ];
-    return random.element(names);
-  }
+  logStatus: () => random.element(["queued", "sent", "failed", "resend"]),
+  
+  auditAction: () => random.element(["CREATE", "UPDATE", "DELETE", "VIEW", "LOGIN", "LOGOUT", "EXPORT"]),
+  
+  auditEntity: () => random.element(["Borrower", "Debt", "PaymentTransaction", "PenaltyTransaction", "LoanAgreement", "Notification", "User"]),
 };
 
 // ========== SEEDER CLASS ==========
-class POSSeeder {
+class DebtManagerXSeeder {
   constructor(config = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.dataSource = null;
     this.queryRunner = null;
-    this.usedSkus = new Set();
-    this.usedBarcodes = new Set();
-    this.productPriceCache = new Map();
+    this.borrowers = [];
+    this.debts = [];
   }
 
   async init() {
     console.log("⏳ Initializing database connection...");
+    // Use the existing data source configuration from your project
+    const { AppDataSource } = require("../main/db/data-source");
     this.dataSource = await AppDataSource.initialize();
     this.queryRunner = this.dataSource.createQueryRunner();
     console.log("✅ Database connected");
@@ -206,465 +116,334 @@ class POSSeeder {
   }
 
   async clearData() {
-    console.log("🧹 Clearing old data...");
+    console.log("🧹 Clearing old debt management data...");
     await this.queryRunner.query("PRAGMA foreign_keys = OFF;");
     try {
-      await this.queryRunner.clearTable("return_refund_items");
-      await this.queryRunner.clearTable("return_refunds");
-      await this.queryRunner.clearTable("purchase_items");
-      await this.queryRunner.clearTable("purchases");
-      await this.queryRunner.clearTable("sale_items");
-      await this.queryRunner.clearTable("inventory_movements");
-      await this.queryRunner.clearTable("loyalty_transactions");
-      await this.queryRunner.clearTable("sales");
-      await this.queryRunner.clearTable("customers");
-      await this.queryRunner.clearTable("products");
-      await this.queryRunner.clearTable("suppliers");
-      await this.queryRunner.clearTable("categories");
-      await this.queryRunner.clearTable("notification_logs");
       await this.queryRunner.clearTable("audit_logs");
-      await this.queryRunner.clearTable("system_settings");
+      await this.queryRunner.clearTable("notification_logs");
+      await this.queryRunner.clearTable("notifications");
+      await this.queryRunner.clearTable("penalty_transactions");
+      await this.queryRunner.clearTable("payment_transactions");
+      await this.queryRunner.clearTable("loan_agreements");
+      await this.queryRunner.clearTable("debts");
+      await this.queryRunner.clearTable("borrowers");
+    } catch (error) {
+      console.warn("Some tables may not exist yet:", error.message);
     } finally {
       await this.queryRunner.query("PRAGMA foreign_keys = ON;");
     }
-    console.log("✅ All tables cleared");
+    console.log("✅ All debt management tables cleared");
   }
 
-  async seedCategories() {
-    console.log(`📂 Seeding ${this.config.categoryCount} food categories...`);
-    const categories = [];
-    const uniqueNames = new Set();
-    for (let i = 0; i < this.config.categoryCount; i++) {
-      let name = random.foodCategoryName(i);
-      if (uniqueNames.has(name)) name = `Food ${i+1}`;
-      uniqueNames.add(name);
-      categories.push({
+  async seedBorrowers() {
+    console.log(`👥 Seeding ${this.config.borrowerCount} borrowers...`);
+    const borrowers = [];
+    for (let i = 0; i < this.config.borrowerCount; i++) {
+      const name = random.name();
+      borrowers.push({
         name: name,
-        description: `${name} category - delicious menu items`,
-        isActive: true,
-        createdAt: new Date(),
-        updatedAt: null,
+        contact: random.boolean(0.9) ? random.phone() : null,
+        email: random.email(name),
+        address: random.boolean(0.7) ? random.address() : null,
+        notes: random.boolean(0.3) ? `Initial contact via ${random.element(["phone", "email", "referral"])}` : null,
+        deletedAt: random.boolean(0.05) ? random.pastDate() : null,
       });
     }
-    const repo = this.dataSource.getRepository(Category);
-    const saved = await repo.save(categories);
-    console.log(`✅ ${saved.length} categories saved`);
+    const repo = this.dataSource.getRepository(Borrower);
+    const saved = await repo.save(borrowers);
+    console.log(`✅ ${saved.length} borrowers saved`);
     return saved;
   }
 
-  async seedSuppliers() {
-    console.log(`🏭 Seeding ${this.config.supplierCount} suppliers...`);
-    const suppliers = [];
-    for (let i = 0; i < this.config.supplierCount; i++) {
-      suppliers.push({
-        name: random.supplierName(),
-        contactInfo: random.boolean(0.8) ? random.phone() : null,
-        email: random.email("supplier"),
-        phone: random.boolean(0.8) ? random.phone() : null,
-        address: random.boolean(0.6) ? `${random.int(1, 999)} Food Hub St` : null,
-        isActive: random.boolean(0.9),
-        createdAt: random.pastDate(),
-        updatedAt: random.boolean(0.2) ? random.pastDate() : null,
-      });
-    }
-    const repo = this.dataSource.getRepository(Supplier);
-    const saved = await repo.save(suppliers);
-    console.log(`✅ ${saved.length} suppliers saved`);
-    return saved;
-  }
-
-  async seedProducts(categories, suppliers) {
-    console.log(`🍔 Seeding ${this.config.productCount} food products...`);
-    const products = [];
-    for (let i = 0; i < this.config.productCount; i++) {
-      const price = random.foodPrice();
-      const stockQty = random.int(10, 200);
-      products.push({
-        sku: random.sku(this.usedSkus),
-        barcode: random.barcode(this.usedBarcodes),
-        name: random.productName(),
-        description: random.description(),
-        price: price,
-        stockQty: stockQty,
-        reorderLevel: random.int(5, 30),
-        reorderQty: random.int(20, 100),
-        isActive: random.boolean(0.95),
-        createdAt: random.pastDate(),
-        updatedAt: random.boolean(0.3) ? random.pastDate() : null,
-        category: random.element(categories),
-        supplier: random.element(suppliers),
-      });
-    }
-    const repo = this.dataSource.getRepository(Product);
-    const saved = await repo.save(products);
-    saved.forEach((p) => this.productPriceCache.set(p.id, parseFloat(p.price)));
-    console.log(`✅ ${saved.length} food products saved`);
-    return saved;
-  }
-
-  async seedCustomers() {
-    console.log(`👥 Seeding ${this.config.customerCount} customers...`);
-    const customers = [];
-    const statuses = ["regular", "vip", "elite"];
-    for (let i = 0; i < this.config.customerCount; i++) {
-      const pointsBalance = random.int(0, 800);
-      customers.push({
-        name: random.name(),
-        contactInfo: random.boolean(0.7) ? random.phone() : null,
-        email: random.email("customer"),
-        phone: random.boolean(0.7) ? random.phone() : null,
-        loyaltyPointsBalance: pointsBalance,
-        lifetimePointsEarned: pointsBalance + random.int(0, 300),
-        status: random.element(statuses),
-        createdAt: random.pastDate(),
-        updatedAt: random.boolean(0.2) ? random.pastDate() : null,
-      });
-    }
-    const repo = this.dataSource.getRepository(Customer);
-    const saved = await repo.save(customers);
-    console.log(`✅ ${saved.length} customers saved`);
-    return saved;
-  }
-
-  async seedSales(products, customers) {
-    console.log(`🧾 Seeding ${this.config.saleCount} food sales with items...`);
-    const saleRepo = this.dataSource.getRepository(Sale);
-    const saleItemRepo = this.dataSource.getRepository(SaleItem);
-
-    const statuses = ["initiated", "paid", "refunded", "voided"];
-    const paymentMethods = ["cash", "card", "wallet"];
-
-    const sales = [];
-    const saleItems = [];
-
-    for (let i = 0; i < this.config.saleCount; i++) {
-      const customer = random.boolean(0.6) ? random.element(customers) : null;
-      const status = random.element(statuses);
-      const isPast = random.boolean(0.7);
-      const saleDate = isPast ? random.pastDate() : random.futureDate();
-      const paymentMethod = random.element(paymentMethods);
-      const itemCount = random.int(1, 5);
-      let totalAmount = 0;
-
-      const usedLoyalty = random.boolean(0.3);
-      const loyaltyRedeemed = usedLoyalty ? random.int(10, 200) : 0;
-      const usedDiscount = random.boolean(0.4);
-      const totalDiscount = usedDiscount ? random.float(5, 50) : 0;
-      const usedVoucher = random.boolean(0.2);
-      const voucherCode = usedVoucher ? random.voucherCode() : null;
-
-      const sale = {
-        timestamp: saleDate,
+  async seedDebts(borrowers) {
+    console.log(`💰 Seeding ${this.config.debtCount} debts...`);
+    const debts = [];
+    const statuses = ["active", "paid", "overdue", "defaulted"];
+    
+    for (let i = 0; i < this.config.debtCount; i++) {
+      const borrower = random.element(borrowers);
+      const totalAmount = random.float(1000, 500000);
+      let paidAmount = random.float(0, totalAmount);
+      const remainingAmount = totalAmount - paidAmount;
+      
+      // Determine realistic status based on due date and payment
+      const dueDate = random.futureDate();
+      let status = random.element(statuses);
+      
+      // Override status if fully paid
+      if (remainingAmount <= 0.01) {
+        status = "paid";
+        paidAmount = totalAmount;
+      } else if (status === "paid" && remainingAmount > 0.01) {
+        status = "active";
+      }
+      
+      debts.push({
+        name: `${borrower.name} - ${random.element(["Personal Loan", "Business Loan", "Emergency Fund", "Education Loan", "Medical Bill"])}`,
+        totalAmount: totalAmount,
+        paidAmount: paidAmount,
+        remainingAmount: remainingAmount,
+        dueDate: dueDate,
         status: status,
-        paymentMethod: paymentMethod,
-        totalAmount: 0,
-        usedLoyalty,
-        loyaltyRedeemed,
-        usedDiscount,
-        totalDiscount,
-        usedVoucher,
-        voucherCode,
-        pointsEarn: 0,
-        notes: random.boolean(0.2) ? "Takeout order" : null,
-        createdAt: saleDate,
-        updatedAt: random.boolean(0.1) ? random.pastDate() : null,
-        customer: customer ? { id: customer.id } : null,
-      };
-
-      const savedSale = await saleRepo.save(sale);
-      sales.push(savedSale);
-
-      for (let j = 0; j < itemCount; j++) {
-        const product = random.element(products);
-        const quantity = random.int(1, 4);
-        const unitPrice = this.productPriceCache.get(product.id) || random.foodPrice();
-        const discount = random.boolean(0.3) ? random.float(0, unitPrice * 0.2) : 0;
-        const tax = random.boolean(0.5) ? random.float(0, unitPrice * 0.12) : 0;
-        const lineTotal = quantity * unitPrice - discount + tax;
-        totalAmount += lineTotal;
-
-        saleItems.push({
-          quantity: quantity,
-          unitPrice: unitPrice,
-          discount: discount,
-          tax: tax,
-          lineTotal: lineTotal,
-          createdAt: savedSale.createdAt,
-          updatedAt: random.boolean(0.1) ? random.pastDate() : null,
-          sale: { id: savedSale.id },
-          product: { id: product.id },
-        });
-      }
-
-      savedSale.totalAmount = totalAmount;
-      savedSale.pointsEarn = totalAmount;
-      await saleRepo.save(savedSale);
-    }
-
-    const savedItems = await saleItemRepo.save(saleItems);
-    console.log(`✅ ${sales.length} sales with ${savedItems.length} items saved`);
-    return { sales, saleItems: savedItems };
-  }
-
-  async seedPurchases(products, suppliers) {
-    console.log(`📥 Seeding ${this.config.purchaseCount} purchases with items...`);
-    const purchaseRepo = this.dataSource.getRepository(Purchase);
-    const purchaseItemRepo = this.dataSource.getRepository(PurchaseItem);
-
-    const purchases = [];
-    const purchaseItems = [];
-
-    for (let i = 0; i < this.config.purchaseCount; i++) {
-      const supplier = random.element(suppliers);
-      const status = random.element(["pending", "approved", "completed", "cancelled"]);
-      const orderDate = random.pastDate();
-      const itemCount = random.int(1, 5);
-      let totalAmount = 0;
-
-      const purchase = {
-        referenceNo: `PO-${Date.now()}-${i}-${random.int(1000, 9999)}`,
-        orderDate: orderDate,
-        status: status,
-        totalAmount: 0,
-        createdAt: orderDate,
-        updatedAt: random.boolean(0.2) ? random.pastDate() : null,
-        supplier: { id: supplier.id },
-      };
-
-      const savedPurchase = await purchaseRepo.save(purchase);
-      purchases.push(savedPurchase);
-
-      for (let j = 0; j < itemCount; j++) {
-        const product = random.element(products);
-        const quantity = random.int(10, 80);
-        const unitPrice = this.productPriceCache.get(product.id) || random.foodPrice();
-        const subtotal = quantity * unitPrice;
-        totalAmount += subtotal;
-
-        purchaseItems.push({
-          quantity: quantity,
-          unitPrice: unitPrice,
-          subtotal: subtotal,
-          createdAt: savedPurchase.createdAt,
-          purchase: { id: savedPurchase.id },
-          product: { id: product.id },
-        });
-      }
-
-      savedPurchase.totalAmount = totalAmount;
-      await purchaseRepo.save(savedPurchase);
-    }
-
-    const savedItems = await purchaseItemRepo.save(purchaseItems);
-    console.log(`✅ ${purchases.length} purchases with ${savedItems.length} items saved`);
-    return { purchases, purchaseItems: savedItems };
-  }
-
-  async seedReturnRefunds(products, customers, sales) {
-    console.log(`🔄 Seeding ${this.config.returnRefundCount} return refunds with items...`);
-    const returnRepo = this.dataSource.getRepository(ReturnRefund);
-    const returnItemRepo = this.dataSource.getRepository(ReturnRefundItem);
-
-    const returns = [];
-    const returnItems = [];
-
-    for (let i = 0; i < this.config.returnRefundCount; i++) {
-      const sale = random.element(sales);
-      const customer = sale.customer ? { id: sale.customer.id } : random.element(customers);
-      const refundMethod = random.element(["Cash", "Card", "Store Credit"]);
-      const status = random.element(["processed", "pending", "cancelled"]);
-      const createdAt = random.pastDate();
-      const itemCount = random.int(1, 3);
-      let totalAmount = 0;
-
-      const returnRefund = {
-        referenceNo: `RET-${Date.now()}-${i}-${random.int(1000, 9999)}`,
-        reason: random.boolean(0.7) ? "Customer not satisfied with food" : null,
-        refundMethod: refundMethod,
-        totalAmount: 0,
-        status: status,
-        createdAt: createdAt,
-        updatedAt: random.boolean(0.2) ? random.pastDate() : null,
-        sale: { id: sale.id },
-        customer: { id: customer.id },
-      };
-
-      const savedReturn = await returnRepo.save(returnRefund);
-      returns.push(savedReturn);
-
-      for (let j = 0; j < itemCount; j++) {
-        const product = random.element(products);
-        const quantity = random.int(1, 2);
-        const unitPrice = this.productPriceCache.get(product.id) || random.foodPrice();
-        const subtotal = quantity * unitPrice;
-        totalAmount += subtotal;
-
-        returnItems.push({
-          quantity: quantity,
-          unitPrice: unitPrice,
-          subtotal: subtotal,
-          reason: random.boolean(0.3) ? "Wrong order / spoiled" : null,
-          createdAt: savedReturn.createdAt,
-          returnRefund: { id: savedReturn.id },
-          product: { id: product.id },
-        });
-      }
-
-      savedReturn.totalAmount = totalAmount;
-      await returnRepo.save(savedReturn);
-    }
-
-    const savedItems = await returnItemRepo.save(returnItems);
-    console.log(`✅ ${returns.length} return refunds with ${savedItems.length} items saved`);
-    return { returns, returnItems: savedItems };
-  }
-
-  async seedInventoryMovements(products, sales, saleItems) {
-    console.log(`📦 Seeding ${this.config.inventoryMovementCount} inventory movements...`);
-    const movementRepo = this.dataSource.getRepository(InventoryMovement);
-    const movementTypes = ["sale", "refund", "adjustment", "purchase"];
-    const movements = [];
-
-    for (const item of saleItems) {
-      if (random.boolean(0.8)) {
-        movements.push({
-          movementType: "sale",
-          qtyChange: -item.quantity,
-          timestamp: item.createdAt,
-          notes: `Sale #${item.sale.id} - food item`,
-          updatedAt: random.boolean(0.1) ? random.pastDate() : null,
-          product: { id: item.product.id },
-          sale: { id: item.sale.id },
-        });
-      }
-    }
-
-    while (movements.length < this.config.inventoryMovementCount) {
-      const product = random.element(products);
-      const sale = random.boolean(0.3) ? random.element(sales) : null;
-      const movementType = random.element(movementTypes);
-      let qtyChange;
-      if (movementType === "sale") qtyChange = -random.int(1, 10);
-      else if (movementType === "refund") qtyChange = random.int(1, 5);
-      else if (movementType === "purchase") qtyChange = random.int(20, 120);
-      else qtyChange = random.int(-15, 25);
-
-      movements.push({
-        movementType: movementType,
-        qtyChange: qtyChange,
-        timestamp: random.pastDate(),
-        notes: movementType === "purchase" ? "Restocked ingredients" : random.boolean(0.2) ? "Manual adjustment" : null,
-        updatedAt: random.boolean(0.1) ? random.pastDate() : null,
-        product: { id: product.id },
-        sale: sale ? { id: sale.id } : null,
+        interestRate: random.boolean(0.8) ? random.float(0, 15) : null,
+        penaltyRate: random.boolean(0.6) ? random.float(1, 5) : null,
+        borrower: { id: borrower.id },
       });
     }
-
-    if (movements.length > this.config.inventoryMovementCount) {
-      movements.length = this.config.inventoryMovementCount;
-    }
-
-    const saved = await movementRepo.save(movements);
-    console.log(`✅ ${saved.length} inventory movements saved`);
+    
+    const repo = this.dataSource.getRepository(Debt);
+    const saved = await repo.save(debts);
+    console.log(`✅ ${saved.length} debts saved`);
     return saved;
   }
 
-  async seedLoyaltyTransactions(customers, sales) {
-    console.log(`💳 Seeding ${this.config.loyaltyTransactionCount} loyalty transactions...`);
-    const transactionRepo = this.dataSource.getRepository(LoyaltyTransaction);
-    const transactions = [];
-
-    for (let i = 0; i < this.config.loyaltyTransactionCount; i++) {
-      const customer = random.element(customers);
-      const sale = random.boolean(0.4) ? random.element(sales) : null;
-      const pointsChange = random.boolean(0.7) ? random.int(10, 200) : -random.int(5, 50);
-      const timestamp = sale ? sale.timestamp : random.pastDate();
-      const transactionType = pointsChange > 0 ? "earn" : "redeem";
-
-      transactions.push({
-        transactionType,
-        pointsChange: pointsChange,
-        timestamp: timestamp,
-        notes: pointsChange > 0 ? "Earned from food purchase" : "Redeemed reward",
-        updatedAt: random.boolean(0.1) ? random.pastDate() : null,
-        customer: { id: customer.id },
-        sale: sale ? { id: sale.id } : null,
-      });
+  async seedPayments(debts) {
+    console.log(`💵 Seeding ${this.config.paymentCount} payment transactions...`);
+    const payments = [];
+    const repo = this.dataSource.getRepository(PaymentTransaction);
+    
+    // Track paid amounts per debt to ensure we don't exceed total
+    const debtPaidSoFar = new Map();
+    debts.forEach(debt => {
+      debtPaidSoFar.set(debt.id, parseFloat(debt.paidAmount) || 0);
+    });
+    
+    // First, create payments that match existing paid amounts
+    for (const debt of debts) {
+      let remainingToPay = parseFloat(debt.paidAmount) || 0;
+      let paymentCount = random.int(1, Math.min(5, remainingToPay > 0 ? 3 : 1));
+      
+      if (remainingToPay === 0) {
+        paymentCount = 0;
+      }
+      
+      for (let i = 0; i < paymentCount && remainingToPay > 0.01; i++) {
+        let amount;
+        if (i === paymentCount - 1) {
+          amount = remainingToPay;
+        } else {
+          amount = random.float(100, remainingToPay * 0.7);
+          if (amount > remainingToPay) amount = remainingToPay;
+        }
+        remainingToPay -= amount;
+        
+        payments.push({
+          amount: amount,
+          paymentDate: random.date(new Date(debt.createdAt || new Date(2023, 0, 1)), new Date()),
+          reference: `PAY-${random.int(10000, 99999)}`,
+          notes: random.boolean(0.3) ? random.element(["Partial payment", "Full settlement", "Advance payment", "Online transfer"]) : null,
+          deletedAt: null,
+          debt: { id: debt.id },
+        });
+      }
     }
-
-    const saved = await transactionRepo.save(transactions);
-    console.log(`✅ ${saved.length} loyalty transactions saved`);
+    
+    // Add extra random payments (for debts with remaining balance)
+    const extraPaymentsNeeded = this.config.paymentCount - payments.length;
+    for (let i = 0; i < extraPaymentsNeeded; i++) {
+      const debt = random.element(debts);
+      const currentPaid = debtPaidSoFar.get(debt.id) || 0;
+      const totalAmount = parseFloat(debt.totalAmount);
+      const maxAdditional = totalAmount - currentPaid;
+      
+      if (maxAdditional > 10) {
+        const amount = random.float(50, Math.min(maxAdditional, 50000));
+        payments.push({
+          amount: amount,
+          paymentDate: random.pastDate(),
+          reference: `PAY-${random.int(10000, 99999)}`,
+          notes: random.boolean(0.3) ? "Additional payment" : null,
+          deletedAt: null,
+          debt: { id: debt.id },
+        });
+        debtPaidSoFar.set(debt.id, currentPaid + amount);
+        
+        // Update debt's paidAmount and remainingAmount
+        await repo.manager
+          .createQueryBuilder()
+          .update(Debt)
+          .set({ 
+            paidAmount: currentPaid + amount,
+            remainingAmount: totalAmount - (currentPaid + amount)
+          })
+          .where("id = :id", { id: debt.id })
+          .execute();
+      }
+    }
+    
+    const saved = await repo.save(payments);
+    console.log(`✅ ${saved.length} payment transactions saved`);
     return saved;
   }
 
-  async seedAuditLogs() {
-    console.log(`📝 Seeding ${this.config.auditLogCount} audit logs...`);
-    const actions = ["CREATE", "UPDATE", "DELETE", "VIEW", "LOGIN", "LOGOUT"];
-    const entities = [
-      "Product", "Customer", "Sale", "InventoryMovement", "LoyaltyTransaction",
-      "SystemSetting", "Category", "Supplier", "Purchase", "ReturnRefund", "NotificationLog"
+  async seedPenalties(debts) {
+    console.log(`⚠️ Seeding ${this.config.penaltyCount} penalty transactions...`);
+    const penalties = [];
+    const repo = this.dataSource.getRepository(PenaltyTransaction);
+    
+    const reasons = [
+      "Late payment", "Missed payment deadline", "Overdue interest", 
+      "Administrative fee", "Collection fee", "Legal notice fee"
     ];
-
-    const logs = [];
-    for (let i = 0; i < this.config.auditLogCount; i++) {
-      logs.push({
-        action: random.element(actions),
-        entity: random.element(entities),
-        entityId: random.int(1, 100),
-        timestamp: random.pastDate(),
-        user: random.element(["admin", "cashier1", "manager", "system"]),
+    
+    for (let i = 0; i < this.config.penaltyCount; i++) {
+      const debt = random.element(debts);
+      const amount = random.float(100, Math.max(500, parseFloat(debt.totalAmount) * 0.05));
+      
+      penalties.push({
+        amount: amount,
+        penaltyDate: random.date(new Date(debt.createdAt || new Date(2023, 0, 1)), new Date()),
+        reason: random.element(reasons),
+        debt: { id: debt.id },
       });
     }
-
-    const repo = this.dataSource.getRepository(AuditLog);
-    await repo.save(logs);
-    console.log(`✅ ${this.config.auditLogCount} audit logs saved`);
+    
+    const saved = await repo.save(penalties);
+    console.log(`✅ ${saved.length} penalty transactions saved`);
+    return saved;
   }
 
-  async seedSystemSettings() {
-    console.log("⚙️ Seeding system settings...");
-    const settings = [
-      { key: "store_name", value: "Tillify Fastfood", setting_type: "general", description: "Store display name", is_public: true, is_deleted: false },
-      { key: "currency", value: "PHP", setting_type: "general", description: "Currency used for pricing", is_public: true, is_deleted: false },
-      { key: "tax_rate", value: "12", setting_type: "general", description: "VAT percentage", is_public: false, is_deleted: false },
-      { key: "loyalty_points_per_currency", value: "1", setting_type: "general", description: "Points earned per peso spent", is_public: false, is_deleted: false },
-      { key: "enable_inventory_sync", value: "true", setting_type: "general", description: "Enable external inventory sync", is_public: false, is_deleted: false },
-      { key: "default_payment_method", value: "cash", setting_type: "general", description: "Default payment method", is_public: true, is_deleted: false },
-      { key: "receipt_footer", value: "Thank you for dining with us!", setting_type: "general", description: "Receipt footer message", is_public: true, is_deleted: false },
-    ];
-    const repo = this.dataSource.getRepository(SystemSetting);
-    await repo.save(settings);
-    console.log(`✅ ${settings.length} system settings saved`);
-    return settings;
+  async seedLoanAgreements(debts) {
+    console.log(`📄 Seeding ${this.config.loanAgreementCount} loan agreements...`);
+    const agreements = [];
+    const repo = this.dataSource.getRepository(LoanAgreement);
+    
+    for (let i = 0; i < this.config.loanAgreementCount && i < debts.length; i++) {
+      const debt = debts[i % debts.length];
+      agreements.push({
+        agreementDate: random.date(new Date(debt.createdAt || new Date(2023, 0, 1)), debt.dueDate),
+        lenderName: random.element([
+          "ABC Lending Corp", "FastCash Loans", "MoneyTree Finance", 
+          "SecureLoan Inc", "Capital One Bank", "MetroBank", 
+          "UnionBank", "BPI Family Savings"
+        ]),
+        termsText: `This loan agreement is for ${debt.name}. Interest rate: ${debt.interestRate || 0}% per annum. Due date: ${debt.dueDate.toLocaleDateString()}.`,
+        filePath: random.boolean(0.7) ? `/documents/agreement_${debt.id}.pdf` : null,
+        deletedAt: random.boolean(0.05) ? random.pastDate() : null,
+        debt: { id: debt.id },
+      });
+    }
+    
+    const saved = await repo.save(agreements);
+    console.log(`✅ ${saved.length} loan agreements saved`);
+    return saved;
   }
 
-  async seedNotificationLogs() {
+  async seedNotifications(debts) {
+    console.log(`🔔 Seeding ${this.config.notificationCount} notifications...`);
+    const notifications = [];
+    const repo = this.dataSource.getRepository(Notification);
+    
+    const titles = {
+      reminder: ["Payment Reminder", "Upcoming Due Date", "Friendly Reminder"],
+      overdue: ["Overdue Payment Alert", "Payment Past Due", "Urgent: Payment Overdue"],
+      payment_confirmation: ["Payment Received", "Payment Confirmation", "Thank You for Your Payment"],
+      info: ["Account Update", "Interest Rate Change", "Statement Available"],
+      error: ["Payment Failed", "Processing Error", "Action Required"]
+    };
+    
+    for (let i = 0; i < this.config.notificationCount; i++) {
+      const debt = random.element(debts);
+      const type = random.notificationType();
+      const title = random.element(titles[type] || titles.info);
+      let message = "";
+      
+      switch (type) {
+        case "reminder":
+          message = `Your payment of ${random.float(500, 5000)} is due on ${debt.dueDate.toLocaleDateString()}. Remaining balance: ${debt.remainingAmount}`;
+          break;
+        case "overdue":
+          message = `Your payment is now overdue. Please settle ${debt.remainingAmount} immediately to avoid additional penalties.`;
+          break;
+        case "payment_confirmation":
+          message = `We have received your payment of ${random.float(500, 10000)}. Thank you!`;
+          break;
+        default:
+          message = `This is a ${type} notification regarding your loan ${debt.name}.`;
+      }
+      
+      notifications.push({
+        title: title,
+        message: message,
+        type: type,
+        isRead: random.boolean(0.3),
+        scheduledFor: random.boolean(0.4) ? random.futureDate() : null,
+        deletedAt: random.boolean(0.05) ? random.pastDate() : null,
+        debt: { id: debt.id },
+      });
+    }
+    
+    const saved = await repo.save(notifications);
+    console.log(`✅ ${saved.length} notifications saved`);
+    return saved;
+  }
+
+  async seedNotificationLogs(borrowers) {
     console.log(`📧 Seeding ${this.config.notificationLogCount} notification logs...`);
-    const repo = this.dataSource.getRepository(NotificationLog);
     const logs = [];
-    const statuses = ["queued", "sent", "failed", "resend"];
-
+    const repo = this.dataSource.getRepository(NotificationLog);
+    
     for (let i = 0; i < this.config.notificationLogCount; i++) {
-      const status = random.element(statuses);
+      const borrower = random.element(borrowers);
+      const status = random.logStatus();
       const sentAt = status === "sent" ? random.pastDate() : null;
       const lastErrorAt = status === "failed" ? random.pastDate() : null;
+      
       logs.push({
-        recipient_email: random.email("customer"),
-        subject: random.boolean(0.7) ? "Your food order is ready" : null,
-        payload: random.boolean(0.5) ? JSON.stringify({ orderId: random.int(1000, 9999) }) : null,
+        recipient_email: borrower.email,
+        subject: random.element(["Payment Reminder", "Loan Statement", "Overdue Notice", "Payment Confirmation"]),
+        payload: JSON.stringify({
+          borrowerId: borrower.id,
+          templateId: random.int(1, 5),
+          metadata: { source: "automated" }
+        }),
         status: status,
-        error_message: status === "failed" ? "SMTP error" : null,
+        error_message: status === "failed" ? random.element(["SMTP timeout", "Invalid email", "Rate limit exceeded"]) : null,
         retry_count: status === "failed" ? random.int(1, 3) : 0,
         resend_count: status === "resend" ? random.int(1, 2) : 0,
         sent_at: sentAt,
         last_error_at: lastErrorAt,
-        created_at: random.pastDate(),
-        updated_at: random.pastDate(),
       });
     }
+    
+    const saved = await repo.save(logs);
+    console.log(`✅ ${saved.length} notification logs saved`);
+    return saved;
+  }
 
-    await repo.save(logs);
-    console.log(`✅ ${this.config.notificationLogCount} notification logs saved`);
+  async seedAuditLogs(borrowers, debts) {
+    console.log(`📝 Seeding ${this.config.auditLogCount} audit logs...`);
+    const logs = [];
+    const repo = this.dataSource.getRepository(AuditLog);
+    const users = ["admin", "loan_officer", "collector", "manager", "system"];
+    
+    for (let i = 0; i < this.config.auditLogCount; i++) {
+      const action = random.auditAction();
+      const entity = random.auditEntity();
+      let entityId = null;
+      
+      if (entity === "Borrower" && borrowers.length) {
+        entityId = random.element(borrowers).id;
+      } else if ((entity === "Debt" || entity === "PaymentTransaction" || entity === "PenaltyTransaction") && debts.length) {
+        entityId = random.element(debts).id;
+      } else {
+        entityId = random.int(1, 500);
+      }
+      
+      logs.push({
+        action: action,
+        entity: entity,
+        entityId: entityId,
+        oldData: random.boolean(0.2) ? { previousValue: `old_${random.int(100, 999)}` } : null,
+        newData: random.boolean(0.3) ? { newValue: `new_${random.int(100, 999)}` } : null,
+        timestamp: random.pastDate(),
+        user: random.element(users),
+      });
+    }
+    
+    const saved = await repo.save(logs);
+    console.log(`✅ ${saved.length} audit logs saved`);
+    return saved;
   }
 
   async run() {
@@ -672,89 +451,63 @@ class POSSeeder {
       await this.init();
       await this.queryRunner.startTransaction();
 
-      if (!this.config.clearOnly) {
-        await this.clearData();
-      }
-
       if (this.config.clearOnly) {
+        await this.clearData();
         console.log("🧹 Clear only mode – no seeding performed.");
         await this.queryRunner.commitTransaction();
         return;
       }
 
-      let categories = [];
-      let suppliers = [];
-      let products = [];
-      let customers = [];
-      let sales = [], saleItems = [];
-      let purchases = [], purchaseItems = [];
-      let returns = [], returnItems = [];
+      await this.clearData();
 
-      if (!this.config.skipCategories) categories = await this.seedCategories();
-      if (!this.config.skipSuppliers) suppliers = await this.seedSuppliers();
-
-      if (!this.config.skipProducts && categories.length && suppliers.length) {
-        products = await this.seedProducts(categories, suppliers);
+      // Seed in order (respecting foreign keys)
+      if (!this.config.skipBorrowers) {
+        this.borrowers = await this.seedBorrowers();
+      } else {
+        this.borrowers = await this.dataSource.getRepository(Borrower).find();
       }
 
-      if (!this.config.skipCustomers) customers = await this.seedCustomers();
-
-      if (!this.config.skipSales && products.length && customers.length) {
-        const result = await this.seedSales(products, customers);
-        sales = result.sales;
-        saleItems = result.saleItems;
+      if (!this.config.skipDebts && this.borrowers.length) {
+        this.debts = await this.seedDebts(this.borrowers);
+      } else {
+        this.debts = await this.dataSource.getRepository(Debt).find();
       }
 
-      if (!this.config.skipPurchases && products.length && suppliers.length) {
-        const result = await this.seedPurchases(products, suppliers);
-        purchases = result.purchases;
-        purchaseItems = result.purchaseItems;
+      if (!this.config.skipPayments && this.debts.length) {
+        await this.seedPayments(this.debts);
       }
 
-      if (!this.config.skipReturnRefunds && products.length && customers.length && sales.length) {
-        const result = await this.seedReturnRefunds(products, customers, sales);
-        returns = result.returns;
-        returnItems = result.returnItems;
+      if (!this.config.skipPenalties && this.debts.length) {
+        await this.seedPenalties(this.debts);
       }
 
-      if (!this.config.skipInventoryMovements && products.length) {
-        await this.seedInventoryMovements(products, sales, saleItems);
+      if (!this.config.skipLoanAgreements && this.debts.length) {
+        await this.seedLoanAgreements(this.debts);
       }
 
-      if (!this.config.skipLoyaltyTransactions && customers.length) {
-        await this.seedLoyaltyTransactions(customers, sales);
+      if (!this.config.skipNotifications && this.debts.length) {
+        await this.seedNotifications(this.debts);
       }
 
-      if (!this.config.skipAuditLogs) {
-        await this.seedAuditLogs();
+      if (!this.config.skipNotificationLogs && this.borrowers.length) {
+        await this.seedNotificationLogs(this.borrowers);
       }
 
-      if (!this.config.skipSystemSettings) {
-        await this.seedSystemSettings();
-      }
-
-      if (!this.config.skipNotificationLogs) {
-        await this.seedNotificationLogs();
+      if (!this.config.skipAuditLogs && (this.borrowers.length || this.debts.length)) {
+        await this.seedAuditLogs(this.borrowers, this.debts);
       }
 
       await this.queryRunner.commitTransaction();
 
-      console.log("\n🎉 SEED COMPLETED SUCCESSFULLY!");
-      console.log(`   Categories: ${categories.length}`);
-      console.log(`   Suppliers: ${suppliers.length}`);
-      console.log(`   Products: ${products.length}`);
-      console.log(`   Customers: ${customers.length}`);
-      console.log(`   Sales: ${sales.length}`);
-      console.log(`   Sale Items: ${saleItems.length}`);
-      console.log(`   Purchases: ${purchases.length}`);
-      console.log(`   Purchase Items: ${purchaseItems.length}`);
-      console.log(`   Return Refunds: ${returns.length}`);
-      console.log(`   Return Items: ${returnItems.length}`);
-      console.log(`   Inventory Movements: ${Math.min(this.config.inventoryMovementCount, saleItems.length + (this.config.inventoryMovementCount - saleItems.length))}`);
-      console.log(`   Loyalty Transactions: ${this.config.loyaltyTransactionCount}`);
-      console.log(`   Audit Logs: ${this.config.auditLogCount}`);
+      console.log("\n🎉 DEBTMANAGERX SEED COMPLETED SUCCESSFULLY!");
+      console.log(`   Borrowers: ${this.config.borrowerCount}`);
+      console.log(`   Debts: ${this.config.debtCount}`);
+      console.log(`   Payments: ${this.config.paymentCount}`);
+      console.log(`   Penalties: ${this.config.penaltyCount}`);
+      console.log(`   Loan Agreements: ${this.config.loanAgreementCount}`);
+      console.log(`   Notifications: ${this.config.notificationCount}`);
       console.log(`   Notification Logs: ${this.config.notificationLogCount}`);
-      console.log(`   System Settings: 7`);
+      console.log(`   Audit Logs: ${this.config.auditLogCount}`);
     } catch (error) {
       console.error("\n❌ Seeding failed – rolling back...", error);
       if (this.queryRunner) await this.queryRunner.rollbackTransaction();
@@ -772,38 +525,96 @@ function parseArgs() {
 
   for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
-      case "--clear-only": config.clearOnly = true; break;
-      case "--products": config.skipProducts = false; config.productCount = parseInt(args[++i]) || DEFAULT_CONFIG.productCount; break;
-      case "--customers": config.skipCustomers = false; config.customerCount = parseInt(args[++i]) || DEFAULT_CONFIG.customerCount; break;
-      case "--sales": config.skipSales = false; config.saleCount = parseInt(args[++i]) || DEFAULT_CONFIG.saleCount; break;
-      case "--inventory-movements": config.skipInventoryMovements = false; config.inventoryMovementCount = parseInt(args[++i]) || DEFAULT_CONFIG.inventoryMovementCount; break;
-      case "--loyalty-transactions": config.skipLoyaltyTransactions = false; config.loyaltyTransactionCount = parseInt(args[++i]) || DEFAULT_CONFIG.loyaltyTransactionCount; break;
-      case "--audit-logs": config.skipAuditLogs = false; config.auditLogCount = parseInt(args[++i]) || DEFAULT_CONFIG.auditLogCount; break;
-      case "--categories": config.skipCategories = false; config.categoryCount = parseInt(args[++i]) || DEFAULT_CONFIG.categoryCount; break;
-      case "--suppliers": config.skipSuppliers = false; config.supplierCount = parseInt(args[++i]) || DEFAULT_CONFIG.supplierCount; break;
-      case "--purchases": config.skipPurchases = false; config.purchaseCount = parseInt(args[++i]) || DEFAULT_CONFIG.purchaseCount; break;
-      case "--return-refunds": config.skipReturnRefunds = false; config.returnRefundCount = parseInt(args[++i]) || DEFAULT_CONFIG.returnRefundCount; break;
-      case "--notification-logs": config.skipNotificationLogs = false; config.notificationLogCount = parseInt(args[++i]) || DEFAULT_CONFIG.notificationLogCount; break;
-      case "--skip-products": config.skipProducts = true; break;
-      case "--skip-customers": config.skipCustomers = true; break;
-      case "--skip-sales": config.skipSales = true; break;
-      case "--skip-inventory-movements": config.skipInventoryMovements = true; break;
-      case "--skip-loyalty-transactions": config.skipLoyaltyTransactions = true; break;
-      case "--skip-audit-logs": config.skipAuditLogs = true; break;
-      case "--skip-system-settings": config.skipSystemSettings = true; break;
-      case "--skip-categories": config.skipCategories = true; break;
-      case "--skip-suppliers": config.skipSuppliers = true; break;
-      case "--skip-purchases": config.skipPurchases = true; break;
-      case "--skip-return-refunds": config.skipReturnRefunds = true; break;
-      case "--skip-notification-logs": config.skipNotificationLogs = true; break;
+      case "--clear-only":
+        config.clearOnly = true;
+        break;
+      case "--borrowers":
+        config.skipBorrowers = false;
+        config.borrowerCount = parseInt(args[++i]) || DEFAULT_CONFIG.borrowerCount;
+        break;
+      case "--debts":
+        config.skipDebts = false;
+        config.debtCount = parseInt(args[++i]) || DEFAULT_CONFIG.debtCount;
+        break;
+      case "--payments":
+        config.skipPayments = false;
+        config.paymentCount = parseInt(args[++i]) || DEFAULT_CONFIG.paymentCount;
+        break;
+      case "--penalties":
+        config.skipPenalties = false;
+        config.penaltyCount = parseInt(args[++i]) || DEFAULT_CONFIG.penaltyCount;
+        break;
+      case "--agreements":
+        config.skipLoanAgreements = false;
+        config.loanAgreementCount = parseInt(args[++i]) || DEFAULT_CONFIG.loanAgreementCount;
+        break;
+      case "--notifications":
+        config.skipNotifications = false;
+        config.notificationCount = parseInt(args[++i]) || DEFAULT_CONFIG.notificationCount;
+        break;
+      case "--logs":
+        config.skipNotificationLogs = false;
+        config.notificationLogCount = parseInt(args[++i]) || DEFAULT_CONFIG.notificationLogCount;
+        break;
+      case "--audit":
+        config.skipAuditLogs = false;
+        config.auditLogCount = parseInt(args[++i]) || DEFAULT_CONFIG.auditLogCount;
+        break;
+      case "--skip-borrowers":
+        config.skipBorrowers = true;
+        break;
+      case "--skip-debts":
+        config.skipDebts = true;
+        break;
+      case "--skip-payments":
+        config.skipPayments = true;
+        break;
+      case "--skip-penalties":
+        config.skipPenalties = true;
+        break;
+      case "--skip-agreements":
+        config.skipLoanAgreements = true;
+        break;
+      case "--skip-notifications":
+        config.skipNotifications = true;
+        break;
+      case "--skip-logs":
+        config.skipNotificationLogs = true;
+        break;
+      case "--skip-audit":
+        config.skipAuditLogs = true;
+        break;
       case "--help":
         console.log(`
-Usage: node seedData.js [options]
+DebtManagerX Database Seeder
 
-Food/Restaurant Seeder Examples:
-  node seedData.js --products 40 --sales 80
-  node seedData.js --clear-only
-  node seedData.js --skip-loyalty-transactions
+Usage: node src/seeders/seedDebtManagerX.js [options]
+
+Options:
+  --clear-only              Clear all data without seeding
+  --borrowers <n>           Number of borrowers (default: 25)
+  --debts <n>               Number of debts (default: 60)
+  --payments <n>            Number of payment transactions (default: 120)
+  --penalties <n>           Number of penalty transactions (default: 30)
+  --agreements <n>          Number of loan agreements (default: 45)
+  --notifications <n>       Number of notifications (default: 80)
+  --logs <n>                Number of notification logs (default: 100)
+  --audit <n>               Number of audit logs (default: 150)
+
+Skip options:
+  --skip-borrowers          Skip seeding borrowers
+  --skip-debts              Skip seeding debts
+  --skip-payments           Skip seeding payments
+  --skip-penalties          Skip seeding penalties
+  --skip-agreements         Skip seeding loan agreements
+  --skip-notifications      Skip seeding notifications
+  --skip-logs               Skip seeding notification logs
+  --skip-audit              Skip seeding audit logs
+
+Examples:
+  node src/seeders/seedDebtManagerX.js --borrowers 50 --debts 100
+  node src/seeders/seedDebtManagerX.js --clear-only
+  node src/seeders/seedDebtManagerX.js --skip-notifications --logs 50
 `);
         process.exit(0);
     }
@@ -811,13 +622,14 @@ Food/Restaurant Seeder Examples:
   return config;
 }
 
+// Run if called directly
 if (require.main === module) {
   const config = parseArgs();
-  const seeder = new POSSeeder(config);
+  const seeder = new DebtManagerXSeeder(config);
   seeder.run().catch((err) => {
     console.error("Fatal error:", err);
     process.exit(1);
   });
 }
 
-module.exports = { POSSeeder, DEFAULT_CONFIG };
+module.exports = { DebtManagerXSeeder, DEFAULT_CONFIG };
